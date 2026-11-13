@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ムツルぼかしツール</title>
+<style>
+:root{--ink:#252a32;--muted:#7d8793;--line:#e7e9ec;--soft:#f5f6f7;--paper:#fff;--accent:#c43b3b;--accent2:#faeeee;--shadow:0 8px 28px rgba(25,35,45,.055)}
+*{box-sizing:border-box}body{margin:0;background:#f7f8f8;color:var(--ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif}
+header{height:66px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 max(22px,calc((100vw - 1420px)/2));position:sticky;top:0;z-index:10}
+.logo{font-size:18px;font-weight:800;letter-spacing:.04em}.logo small{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.12em;margin-left:9px}
+nav{display:flex;gap:5px}nav button{border:0;background:transparent;color:#69727d;padding:8px 13px;border-radius:8px;font-weight:650}nav button.active{background:#faeeee;color:var(--accent)}
+main{max-width:1420px;margin:0 auto;padding:28px 22px 40px}
+.hero{display:flex;justify-content:space-between;align-items:end;margin-bottom:22px;gap:15px}.eyebrow{font-size:10px;letter-spacing:.18em;color:var(--accent);font-weight:800}.hero h1{font-size:25px;letter-spacing:.01em;margin:5px 0 4px}.hero p{margin:0;color:var(--muted);font-size:13px}
+.layout{display:grid;grid-template-columns:320px minmax(0,1fr);gap:18px;align-items:start}
+.panel,.workspace{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.panel{padding:17px}.block{padding:2px 0 17px;margin-bottom:16px;border-bottom:1px solid var(--line)}.block:last-child{border:0;margin:0;padding-bottom:0}
+h2{font-size:12px;letter-spacing:.08em;margin:0 0 12px;color:#505b66}.num{display:inline-grid;place-items:center;width:21px;height:21px;border-radius:6px;background:#faeeee;color:var(--accent);font-size:10px;margin-right:7px}
+.drop{border:1px dashed #cbd2d7;border-radius:11px;background:#fcfafa;text-align:center;padding:19px 10px;cursor:pointer;transition:.18s}.drop:hover,.drop.over{border-color:var(--accent);background:#fff7f7}.plus{font-size:25px;color:var(--accent);line-height:1}.drop b{display:block;margin:6px 0 2px;font-size:13px}.drop small{color:var(--muted);font-size:11px}
+button,.filebtn{font:inherit;cursor:pointer;border:1px solid #dfe3e6;background:#fff;color:#3e4852;border-radius:8px;padding:8px 11px;font-weight:650;transition:.15s}button:hover{border-color:#d7aaaa;background:#fbfdfc}button:disabled{opacity:.45;cursor:not-allowed}
+.primary{background:var(--accent)!important;color:white!important;border-color:var(--accent)!important}.primary:hover{background:#1c5848!important}
+.full{width:100%}.row{display:flex;gap:8px}.row>*{flex:1}.tiny{font-size:11px;padding:6px 9px}
+label{display:flex;justify-content:space-between;align-items:center;color:#5d6873;font-size:12px;margin:12px 0 6px}
+select,input[type=range]{width:100%}select{border:1px solid #dfe3e6;border-radius:8px;padding:9px;background:#fff;color:#343c45;font:inherit}
+input[type=range]{accent-color:var(--accent);margin:5px 0}
+.check{display:flex;align-items:center;gap:8px;margin:8px 0;color:#4f5963;font-size:12px}.check input{accent-color:var(--accent)}
+.help{font-size:11px;color:#89939d;line-height:1.6;margin:8px 0 0}.status{font-size:11px;color:var(--accent);min-height:18px;margin-top:8px}
+.workspace{padding:15px;min-height:690px}.worktop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.worktop strong{font-size:13px}.meta{font-size:11px;color:var(--muted)}
+.canvaswrap{min-height:570px;border:1px solid #e9ecee;border-radius:11px;background-color:#fcfafa;background-image:linear-gradient(45deg,#f2eeee 25%,transparent 25%),linear-gradient(-45deg,#f2eeee 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#f2eeee 75%),linear-gradient(-45deg,transparent 75%,#f2eeee 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:16px;position:relative}
+canvas{max-width:100%;max-height:68vh;object-fit:contain;box-shadow:0 6px 22px #26323c18;touch-action:none}
+.empty{text-align:center;color:#929ba4;max-width:330px}.empty .symbol{font-size:36px;color:#b7c2c8}.empty b{display:block;color:#606c75;margin:8px}
+.bottom{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}.tag{border:1px solid #e2e7e8;border-radius:30px;padding:5px 9px;color:#77818b;font-size:10px}
+.sticker-panel{display:none;margin-top:10px;padding:10px;background:#fbf5f5;border-radius:9px}.sticker-panel.show{display:block}.sticker-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.sticker-grid button{font-size:20px;padding:7px;border-radius:8px}.sticker-grid button.selected{border-color:var(--accent);background:var(--accent2)}
+.hidden{display:none!important}.progress{height:4px;background:#edf0f1;border-radius:8px;overflow:hidden;margin-top:8px}.progress i{display:block;width:0;height:100%;background:var(--accent);transition:width .2s}
+@media(max-width:900px){header{padding:0 14px}.logo small{display:none}main{padding:18px 12px}.layout{grid-template-columns:1fr}.workspace{min-height:500px}.canvaswrap{min-height:400px}.hero{align-items:start;flex-direction:column}}
+
+/* --- Mutsuru: restrained desktop editing workspace --- */
+:root{--ink:#242424;--muted:#777;--line:#dedede;--soft:#f4f4f4;--paper:#fff;--accent:#b9272f;--accent2:#f8eded;--shadow:none}
+body{background:#f1f1f1;color:#242424;font-family:Arial,"Noto Sans JP",sans-serif;font-size:13px}
+header{height:58px;padding:0 28px;background:#fff;border-bottom:2px solid #b9272f;box-shadow:none}
+.logo{font-size:17px;font-weight:750;letter-spacing:.01em}
+main{max-width:1540px;padding:20px 24px 28px}
+.hero{margin:0 0 14px;padding:0 0 12px;border-bottom:1px solid #d8d8d8}
+.hero h1{font-size:18px;font-weight:700;margin:0;letter-spacing:0}
+.layout{grid-template-columns:290px minmax(0,1fr);gap:14px}
+.panel,.workspace{border:1px solid #d7d7d7;border-radius:3px;box-shadow:none;background:#fff}
+.panel{padding:0 15px}
+.block{padding:15px 0;margin:0;border-bottom:1px solid #e5e5e5}
+h2{font-size:12px;letter-spacing:.02em;color:#292929;font-weight:700;margin:0 0 12px}
+.num{width:22px;height:22px;border-radius:2px;background:#b9272f;color:white;font-size:10px}
+.drop{border:1px dashed #bdbdbd;border-radius:2px;background:#fafafa;padding:17px 8px}
+.drop:hover,.drop.over{border-color:#b9272f;background:#fffafa}
+.plus{font-size:22px;color:#b9272f}
+button,.filebtn{border:1px solid #cfcfcf;border-radius:2px;padding:8px 10px;background:#fff;color:#333;font-weight:600}
+button:hover{border-color:#b9272f;background:#fff7f7}
+.primary{background:#b9272f!important;border-color:#b9272f!important;color:#fff!important}
+.primary:hover{background:#982029!important}
+select{border:1px solid #cfcfcf;border-radius:2px;padding:8px;background:#fff}
+label{color:#333;font-size:12px;margin:11px 0 5px}
+input[type=range]{accent-color:#b9272f}
+.workspace{padding:13px;min-height:680px}
+.worktop{padding:0 0 10px;border-bottom:1px solid #e2e2e2}
+.worktop strong{font-size:13px}
+.canvaswrap{min-height:590px;margin-top:12px;border:1px solid #d9d9d9;border-radius:2px;background-color:#ededed;background-image:linear-gradient(45deg,#e4e4e4 25%,transparent 25%),linear-gradient(-45deg,#e4e4e4 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e4e4e4 75%),linear-gradient(-45deg,transparent 75%,#e4e4e4 75%);background-size:18px 18px;background-position:0 0,0 9px,9px -9px,-9px 0}
+canvas{box-shadow:0 2px 10px #0002}
+.empty .symbol{color:#b9272f}
+.sticker-panel{background:#f7f7f7;border-radius:2px}
+.sticker-grid button{border-radius:2px}
+.sticker-grid button.selected{border-color:#b9272f;background:#f8eded}
+.tag{border-radius:2px}
+.progress{border-radius:0}
+.progress i{background:#b9272f}
+.status{color:#b9272f}
+.help{color:#777}
+@media(max-width:900px){header{padding:0 14px}main{padding:14px 10px}.layout{grid-template-columns:1fr}.canvaswrap{min-height:380px}}
+
+</style>
+</head>
+<body>
+<header><div class="logo">ムツルぼかしツール</div></header>
+<main>
+<div class="hero"><div><h1>写真編集</h1></div></div>
+<div class="layout">
+<aside class="panel">
+ <div class="block">
+  <h2><span class="num">01</span>写真を読み込む</h2>
+  <div class="drop" id="drop"><div class="plus">＋</div><b>ここに画像をドロップ</b><small>またはファイルを選択 · 複数画像ではなく1枚ずつ編集</small><input id="file" type="file" accept="image/*" hidden></div>
+  <div class="row" style="margin-top:8px"><button id="choose" class="tiny">ファイルを選択</button><button id="reset" class="tiny">画像を削除</button></div><div class="status" id="status">画像を読み込んでください。</div>
+ </div>
+ <div class="block">
+  <h2><span class="num">02</span>顔・人物を自動検出</h2>
+  <div class="check"><input type="checkbox" id="faces" checked><span>顔を検出</span></div><div class="check"><input type="checkbox" id="people"><span>人物全体を検出</span></div>
+  <button id="detect" class="primary full">自動検出してマスクを追加</button><div class="progress"><i id="progress"></i></div>
+  <p class="help"></p>
+ </div>
+ <div class="block">
+  <h2><span class="num">03</span>加工設定</h2>
+  <label>加工方法</label><select id="effect"><option value="mosaic">モザイク</option><option value="blur">ぼかし</option><option value="sticker">ステッカー</option><option value="solid">塗りつぶし</option></select>
+  <div id="stickerPanel" class="sticker-panel"><label style="margin:0">ステッカーを選択</label><div class="sticker-grid" id="stickerGrid"></div><p class="help">選んだステッカーはすべてのステッカー範囲に反映されます。</p></div>
+  <label>形 <span id="shapeName">楕円</span></label><select id="shape"><option value="ellipse">楕円</option><option value="rect">四角形</option><option value="round">角丸四角形</option><option value="diamond">ひし形</option></select>
+  <label>強さ・サイズ <b id="strengthVal">18</b></label><input id="strength" type="range" min="3" max="64" value="18">
+  <label>範囲の拡大・縮小 <b id="scaleVal">100%</b></label><input id="scale" type="range" min="50" max="180" value="100">
+  <div class="row" style="margin-top:8px"><button id="applyAll" class="tiny">全範囲に適用</button><button id="delete" class="tiny">最後の範囲を削除</button></div>
+  <p class="help">設定はすべての加工範囲にすぐ反映されます。</p>
+ </div>
+ <div class="block">
+  <h2><span class="num">04</span>保存</h2>
+  <label>JPG画質 <b id="qualityVal">92%</b></label><input id="quality" type="range" min="60" max="100" value="92">
+  <button id="export" class="primary full" style="margin-top:10px">JPGで保存する</button>
+ </div>
+</aside>
+<section class="workspace">
+ <div class="worktop"><strong>編集プレビュー</strong><span class="meta" id="dimensions"></span></div>
+ <div class="canvaswrap" id="canvaswrap"><div class="empty" id="empty"><div class="symbol">＋</div><b>写真をここにドロップ</b><span>または左側の「ファイルを選択」から追加</span></div><canvas id="canvas" hidden></canvas></div>
+ <div class="bottom"><span class="meta">画像上をドラッグして加工範囲を追加</span><span class="tag" id="count">0 件のマスク</span></div>
+</section>
+</div>
+</main>
+<script type="module">
+const $=id=>document.getElementById(id), canvas=$('canvas'),ctx=canvas.getContext('2d');
+let image=null,masks=[],selected=-1,drag=null,faceDetector=null,objectDetector=null,sticker='🙂';
+const stickers=['🙂','😎','⭐','❤️','🐼','🐱','🌸','🔒','⬛','🟦','🎭','☁️'];
+const grid=$('stickerGrid');
+stickers.forEach(s=>{const b=document.createElement('button');b.textContent=s;b.type='button';b.onclick=()=>{sticker=s;grid.querySelectorAll('button').forEach(x=>x.classList.toggle('selected',x===b));masks.forEach(m=>{if(m.effect==='sticker')m.sticker=s});render()};if(s===sticker)b.classList.add('selected');grid.append(b)});
+const base=document.createElement('canvas'),bc=base.getContext('2d');
+function status(t){$('status').textContent=t}
+function load(file){if(!file||!file.type.startsWith('image/'))return status('画像ファイルを選択してください。');const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{image=im;canvas.width=base.width=im.naturalWidth;canvas.height=base.height=im.naturalHeight;bc.drawImage(im,0,0);masks=[];selected=-1;canvas.hidden=false;$('empty').classList.add('hidden');$('dimensions').textContent=`${canvas.width} × ${canvas.height}`;status('画像を読み込みました。');render();URL.revokeObjectURL(u)};im.onerror=()=>status('画像を読み込めませんでした。');im.src=u}
+$('choose').onclick=()=>$('file').click();$('drop').onclick=()=>$('file').click();$('file').onchange=e=>load(e.target.files[0]);
+for(const el of [$('drop'),$('canvaswrap')]){el.ondragover=e=>{e.preventDefault();$('drop').classList.add('over')};el.ondragleave=()=>$('drop').classList.remove('over');el.ondrop=e=>{e.preventDefault();$('drop').classList.remove('over');load(e.dataTransfer.files[0])}}
+function selectedMask(){return null}
+function updateSelected(p){masks.forEach(m=>Object.assign(m,p))}
+function shapePath(c,m){c.beginPath();if(m.shape==='rect')c.rect(m.x,m.y,m.w,m.h);else if(m.shape==='round')c.roundRect(m.x,m.y,m.w,m.h,Math.min(m.w,m.h)*.18);else if(m.shape==='diamond'){c.moveTo(m.x+m.w/2,m.y);c.lineTo(m.x+m.w,m.y+m.h/2);c.lineTo(m.x+m.w/2,m.y+m.h);c.lineTo(m.x,m.y+m.h/2);c.closePath()}else c.ellipse(m.x+m.w/2,m.y+m.h/2,Math.max(1,m.w/2),Math.max(1,m.h/2),0,0,Math.PI*2)}
+function paintMask(m){ctx.save();shapePath(ctx,m);ctx.clip();
+ if(m.effect==='mosaic'){const block=Math.max(3,m.strength),tmp=document.createElement('canvas');tmp.width=Math.max(1,Math.ceil(m.w/block));tmp.height=Math.max(1,Math.ceil(m.h/block));tmp.getContext('2d').drawImage(base,m.x,m.y,m.w,m.h,0,0,tmp.width,tmp.height);ctx.imageSmoothingEnabled=false;ctx.drawImage(tmp,m.x,m.y,m.w,m.h);ctx.imageSmoothingEnabled=true}
+ else if(m.effect==='blur'){const tmp=document.createElement('canvas');tmp.width=canvas.width;tmp.height=canvas.height;const t=tmp.getContext('2d');t.filter=`blur(${m.strength}px)`;t.drawImage(base,0,0);t.filter='none';ctx.drawImage(tmp,m.x,m.y,m.w,m.h,m.x,m.y,m.w,m.h)}
+ else if(m.effect==='solid'){ctx.fillStyle='#15191d';ctx.fillRect(m.x,m.y,m.w,m.h)}
+ else {ctx.fillStyle='#fff';ctx.font=`${Math.max(18,m.h*.8)}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(m.sticker||sticker,m.x+m.w/2,m.y+m.h/2)}
+ ctx.restore();
+
+}
+function render(){if(!image)return;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(base,0,0);masks.forEach(paintMask);if(drag){ctx.save();ctx.strokeStyle='#c43b3b';ctx.lineWidth=3;ctx.setLineDash([7,5]);ctx.strokeRect(drag.x,drag.y,drag.w,drag.h);ctx.restore()}$('count').textContent=`${masks.length} 件のマスク`;syncControls()}
+function syncControls(){$('strengthVal').textContent=$('strength').value;$('scaleVal').textContent=$('scale').value+'%';$('stickerPanel').classList.toggle('show',$('effect').value==='sticker');$('shapeName').textContent={ellipse:'楕円',rect:'四角形',round:'角丸四角形',diamond:'ひし形'}[$('shape').value]}
+function point(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height}}
+function hit(p){for(let i=masks.length-1;i>=0;i--){const m=masks[i];if(p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y&&p.y<=m.y+m.h)return i}return -1}
+canvas.onpointerdown=e=>{if(!image)return;canvas.setPointerCapture(e.pointerId);const p=point(e);drag={x:p.x,y:p.y,w:0,h:0};render()};
+canvas.onpointermove=e=>{if(!drag)return;const p=point(e);drag.w=p.x-drag.x;drag.h=p.y-drag.y;render()};
+canvas.onpointerup=()=>{if(!drag)return;const m={x:Math.min(drag.x,drag.x+drag.w),y:Math.min(drag.y,drag.y+drag.h),w:Math.abs(drag.w),h:Math.abs(drag.h),effect:$('effect').value,shape:$('shape').value,strength:+$('strength').value,scale:+$('scale').value,sticker};drag=null;if(m.w>7&&m.h>7){m.baseW=m.w;m.baseH=m.h;m.baseX=m.x;m.baseY=m.y;const k=(+$('scale').value)/100;m.w*=k;m.h*=k;m.x=m.baseX+(m.baseW-m.w)/2;m.y=m.baseY+(m.baseH-m.h)/2;masks.push(m);selected=-1}render()};
+$('effect').onchange=()=>{masks.forEach(m=>m.effect=$('effect').value);$('stickerPanel').classList.toggle('show',$('effect').value==='sticker');render()};
+$('shape').onchange=()=>{updateSelected({shape:$('shape').value});render()};
+$('strength').oninput=()=>{updateSelected({strength:+$('strength').value});$('strengthVal').textContent=$('strength').value;render()};
+$('scale').oninput=()=>{const pct=+$('scale').value,v=pct/100;masks.forEach(m=>{if(m.baseW==null){m.baseW=m.w;m.baseH=m.h;m.baseX=m.x;m.baseY=m.y}const cx=m.baseX+m.baseW/2,cy=m.baseY+m.baseH/2;m.w=Math.max(1,m.baseW*v);m.h=Math.max(1,m.baseH*v);m.x=cx-m.w/2;m.y=cy-m.h/2;m.scale=pct});$('scaleVal').textContent=pct+'%';render()};
+$('applyAll').onclick=()=>{const p={effect:$('effect').value,shape:$('shape').value,strength:+$('strength').value,sticker};masks.forEach(m=>Object.assign(m,p));render()};
+$('delete').onclick=()=>{masks.pop();render()};
+$('quality').oninput=()=>$('qualityVal').textContent=$('quality').value+'%';
+$('reset').onclick=()=>{image=null;masks=[];selected=-1;canvas.hidden=true;$('empty').classList.remove('hidden');$('dimensions').textContent='画像未選択';$('file').value='';status('画像を読み込んでください。');$('count').textContent='0 件のマスク'};
+async function initAI(){const {FilesetResolver,FaceDetector,ObjectDetector}=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm');const v=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');const jobs=[];if($('faces').checked)jobs.push(FaceDetector.createFromOptions(v,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'},runningMode:'IMAGE',minDetectionConfidence:.45}).then(x=>faceDetector=x));if($('people').checked)jobs.push(ObjectDetector.createFromOptions(v,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite'},scoreThreshold:.35,runningMode:'IMAGE'}).then(x=>objectDetector=x));await Promise.all(jobs)}
+$('detect').onclick=async()=>{if(!image)return status('先に画像を読み込んでください。');if(!$('faces').checked&&!$('people').checked)return status('顔または人物を選択してください。');$('detect').disabled=true;$('progress').style.width='25%';status('AIエンジンを準備しています…');try{await initAI();$('progress').style.width='65%';const found=[];if($('faces').checked&&faceDetector){for(const d of faceDetector.detect(base).detections||[]){const b=d.boundingBox;if(b)found.push({x:Math.max(0,b.originX-b.width*.12),y:Math.max(0,b.originY-b.height*.18),w:Math.min(canvas.width,b.width*1.24),h:Math.min(canvas.height,b.height*1.36)})}}if($('people').checked&&objectDetector){for(const d of objectDetector.detect(base).detections||[]){if(d.categories?.some(c=>c.categoryName==='person')){const b=d.boundingBox;found.push({x:b.originX,y:b.originY,w:b.width,h:b.height})}}}let n=0;for(const b of found){if(masks.some(m=>Math.abs(m.x-b.x)<18&&Math.abs(m.y-b.y)<18))continue;const k=(+$('scale').value)/100;const m={...b,baseW:b.w,baseH:b.h,baseX:b.x,baseY:b.y,effect:$('effect').value,shape:$('shape').value,strength:+$('strength').value,scale:+$('scale').value,sticker};m.w*=k;m.h*=k;m.x=m.baseX+(m.baseW-m.w)/2;m.y=m.baseY+(m.baseH-m.h)/2;masks.push(m);n++}selected=-1;$('progress').style.width='100%';status(`${n} 件を検出しました。加工範囲を追加しました。`);render()}catch(e){console.error(e);status('AIモデルを読み込めませんでした。インターネット接続を確認してください。')}finally{$('detect').disabled=false;setTimeout(()=>$('progress').style.width='0%',900)}};
+$('export').onclick=()=>{if(!image)return status('保存する画像がありません。');const out=document.createElement('canvas');out.width=canvas.width;out.height=canvas.height;out.getContext('2d').drawImage(canvas,0,0);out.toBlob(blob=>{if(!blob)return status('JPGを書き出せませんでした。');const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mutsuru-blur.jpg';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1200);status('JPGを保存しました。')},'image/jpeg',+$('quality').value/100)};
+</script>
+</body></html>
