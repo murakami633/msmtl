@@ -88,8 +88,8 @@ canvas{box-shadow:0 2px 10px #0002}
  </div>
  <div class="block">
   <h2><span class="num">02</span>顔・人物を自動検出</h2>
-  <div class="check"><input type="checkbox" id="faces" checked><span>顔を検出</span></div><div class="check"><input type="checkbox" id="people"><span>人物全体を検出</span></div>
-  <button id="detect" class="primary full">自動検出してマスクを追加</button><div class="progress"><i id="progress"></i></div>
+  <div class="check"><input type="checkbox" id="faces" checked><span>顔を検出（複数倍率）</span></div><div class="check"><input type="checkbox" id="people"><span>人物全体も検出</span></div>
+  <button id="detect" class="primary full">高精度スキャンして加工</button><div class="progress"><i id="progress"></i></div><p class="help">写真全体と重なり合う小領域を複数回スキャンします。画像が大きいほど処理に時間がかかります。</p>
   <p class="help"></p>
  </div>
  <div class="block">
@@ -117,7 +117,7 @@ canvas{box-shadow:0 2px 10px #0002}
 </main>
 <script type="module">
 const $=id=>document.getElementById(id), canvas=$('canvas'),ctx=canvas.getContext('2d');
-let image=null,masks=[],selected=-1,drag=null,faceDetector=null,objectDetector=null,sticker='🙂';
+let image=null,masks=[],selected=-1,drag=null,faceDetector=null,faceDetectorFull=null,objectDetector=null,sticker='🙂';
 const stickers=['🙂','😎','⭐','❤️','🐼','🐱','🌸','🔒','⬛','🟦','🎭','☁️'];
 const grid=$('stickerGrid');
 stickers.forEach(s=>{const b=document.createElement('button');b.textContent=s;b.type='button';b.onclick=()=>{sticker=s;grid.querySelectorAll('button').forEach(x=>x.classList.toggle('selected',x===b));masks.forEach(m=>{if(m.effect==='sticker')m.sticker=s});render()};if(s===sticker)b.classList.add('selected');grid.append(b)});
@@ -152,8 +152,121 @@ $('applyAll').onclick=()=>{const p={effect:$('effect').value,shape:$('shape').va
 $('delete').onclick=()=>{masks.pop();render()};
 $('quality').oninput=()=>$('qualityVal').textContent=$('quality').value+'%';
 $('reset').onclick=()=>{image=null;masks=[];selected=-1;canvas.hidden=true;$('empty').classList.remove('hidden');$('dimensions').textContent='画像未選択';$('file').value='';status('画像を読み込んでください。');$('count').textContent='0 件のマスク'};
-async function initAI(){const {FilesetResolver,FaceDetector,ObjectDetector}=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm');const v=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');const jobs=[];if($('faces').checked)jobs.push(FaceDetector.createFromOptions(v,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'},runningMode:'IMAGE',minDetectionConfidence:.45}).then(x=>faceDetector=x));if($('people').checked)jobs.push(ObjectDetector.createFromOptions(v,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite'},scoreThreshold:.35,runningMode:'IMAGE'}).then(x=>objectDetector=x));await Promise.all(jobs)}
-$('detect').onclick=async()=>{if(!image)return status('先に画像を読み込んでください。');if(!$('faces').checked&&!$('people').checked)return status('顔または人物を選択してください。');$('detect').disabled=true;$('progress').style.width='25%';status('AIエンジンを準備しています…');try{await initAI();$('progress').style.width='65%';const found=[];if($('faces').checked&&faceDetector){for(const d of faceDetector.detect(base).detections||[]){const b=d.boundingBox;if(b)found.push({x:Math.max(0,b.originX-b.width*.12),y:Math.max(0,b.originY-b.height*.18),w:Math.min(canvas.width,b.width*1.24),h:Math.min(canvas.height,b.height*1.36)})}}if($('people').checked&&objectDetector){for(const d of objectDetector.detect(base).detections||[]){if(d.categories?.some(c=>c.categoryName==='person')){const b=d.boundingBox;found.push({x:b.originX,y:b.originY,w:b.width,h:b.height})}}}let n=0;for(const b of found){if(masks.some(m=>Math.abs(m.x-b.x)<18&&Math.abs(m.y-b.y)<18))continue;const k=(+$('scale').value)/100;const m={...b,baseW:b.w,baseH:b.h,baseX:b.x,baseY:b.y,effect:$('effect').value,shape:$('shape').value,strength:+$('strength').value,scale:+$('scale').value,sticker};m.w*=k;m.h*=k;m.x=m.baseX+(m.baseW-m.w)/2;m.y=m.baseY+(m.baseH-m.h)/2;masks.push(m);n++}selected=-1;$('progress').style.width='100%';status(`${n} 件を検出しました。加工範囲を追加しました。`);render()}catch(e){console.error(e);status('AIモデルを読み込めませんでした。インターネット接続を確認してください。')}finally{$('detect').disabled=false;setTimeout(()=>$('progress').style.width='0%',900)}};
+
+async function initAI(){
+ const {FilesetResolver,FaceDetector,ObjectDetector}=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm');
+ const vision=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+ const tasks=[];
+ if($('faces').checked){
+  if(!faceDetector)tasks.push(FaceDetector.createFromOptions(vision,{
+   baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'},
+   runningMode:'IMAGE',minDetectionConfidence:.22
+  }).then(detector=>faceDetector=detector));
+  if(!faceDetectorFull)tasks.push(FaceDetector.createFromOptions(vision,{
+   baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_full_range/float16/1/blaze_face_full_range.tflite'},
+   runningMode:'IMAGE',minDetectionConfidence:.20
+  }).then(detector=>faceDetectorFull=detector));
+ }
+ if($('people').checked&&!objectDetector)tasks.push(ObjectDetector.createFromOptions(vision,{
+  baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite'},
+  scoreThreshold:.20,runningMode:'IMAGE',maxResults:100
+ }).then(detector=>objectDetector=detector));
+ await Promise.all(tasks);
+}
+function scanTiles(sourceCanvas,tileSize,overlap,detector,progressFn){
+ const W=sourceCanvas.width,H=sourceCanvas.height,step=Math.max(96,Math.floor(tileSize*(1-overlap)));
+ const xs=[],ys=[];
+ for(let x=0;x<W;x+=step)xs.push(Math.min(x,Math.max(0,W-tileSize)));
+ for(let y=0;y<H;y+=step)ys.push(Math.min(y,Math.max(0,H-tileSize)));
+ const ux=[...new Set(xs)],uy=[...new Set(ys)],total=ux.length*uy.length;
+ const tile=document.createElement('canvas'),tc=tile.getContext('2d',{willReadFrequently:true});
+ const found=[];let done=0;
+ for(const y of uy)for(const x of ux){
+  const w=Math.min(tileSize,W-x),h=Math.min(tileSize,H-y);
+  tile.width=w;tile.height=h;tc.clearRect(0,0,w,h);tc.drawImage(sourceCanvas,x,y,w,h,0,0,w,h);
+  const detections=detector.detect(tile).detections||[];
+  for(const d of detections){
+   const b=d.boundingBox;if(!b)continue;
+   const bx=x+b.originX,by=y+b.originY,bw=b.width,bh=b.height;
+   // Pad to cover hairline, jaw and ears, and clip to the original photo.
+   const px=bw*.24,pt=bh*.30,pb=bh*.24;
+   const x1=Math.max(0,bx-px),y1=Math.max(0,by-pt),x2=Math.min(W,bx+bw+px),y2=Math.min(H,by+bh+pb);
+   if(x2>x1&&y2>y1)found.push({x:x1,y:y1,w:x2-x1,h:y2-y1});
+  }
+  done++;if(progressFn)progressFn(done,total);
+ }
+ return found;
+}
+function intersectionOverSmaller(a,b){
+ const x1=Math.max(a.x,b.x),y1=Math.max(a.y,b.y),x2=Math.min(a.x+a.w,b.x+b.w),y2=Math.min(a.y+a.h,b.y+b.h);
+ const inter=Math.max(0,x2-x1)*Math.max(0,y2-y1),smaller=Math.min(a.w*a.h,b.w*b.h);
+ return smaller?inter/smaller:0;
+}
+function addAutoMask(b){
+ const factor=(+$('scale').value)/100;
+ const m={...b,baseW:b.w,baseH:b.h,baseX:b.x,baseY:b.y,effect:$('effect').value,shape:$('shape').value,strength:+$('strength').value,scale:+$('scale').value,sticker};
+ m.w*=factor;m.h*=factor;m.x=m.baseX+(m.baseW-m.w)/2;m.y=m.baseY+(m.baseH-m.h)/2;
+ masks.push(m);
+}
+$('detect').onclick=async()=>{
+ if(!image)return status('先に画像を読み込んでください。');
+ if(!$('faces').checked&&!$('people').checked)return status('顔または人物を選択してください。');
+ $('detect').disabled=true;$('progress').style.width='3%';status('高精度検出モデルを準備しています…');
+ try{
+  await initAI();
+  const detected=[];
+  if($('faces').checked){
+   // Full-image passes find prominent faces; overlapping tiles recover small faces and crowded groups.
+   for(const detector of [faceDetectorFull,faceDetector]){
+    if(!detector)continue;
+    const whole=detector.detect(base).detections||[];
+    for(const d of whole){
+     const b=d.boundingBox;if(!b)continue;
+     const px=b.width*.24,pt=b.height*.30,pb=b.height*.24;
+     const x=Math.max(0,b.originX-px),y=Math.max(0,b.originY-pt);
+     const x2=Math.min(canvas.width,b.originX+b.width+px),y2=Math.min(canvas.height,b.originY+b.height+pb);
+     if(x2>x&&y2>y)detected.push({x,y,w:x2-x,h:y2-y});
+    }
+   }
+   $('progress').style.width='12%';status('顔をタイル分割して細かく確認しています…');
+   const a=scanTiles(base,640,.28,faceDetectorFull,(done,total)=>{
+    $('progress').style.width=(12+Math.round(34*done/total))+'%';
+   });
+   detected.push(...a);
+   const b=scanTiles(base,384,.25,faceDetector,(done,total)=>{
+    $('progress').style.width=(46+Math.round(34*done/total))+'%';
+   });
+   detected.push(...b);
+  }
+  if($('people').checked&&objectDetector){
+   $('progress').style.width='84%';status('人物全体も確認しています…');
+   const persons=objectDetector.detect(base).detections||[];
+   for(const d of persons){
+    if(!d.categories?.some(c=>c.categoryName?.toLowerCase()==='person'))continue;
+    const b=d.boundingBox;if(b)detected.push({x:Math.max(0,b.originX),y:Math.max(0,b.originY),w:Math.min(canvas.width-b.originX,b.width),h:Math.min(canvas.height-b.originY,b.height)});
+   }
+  }
+  // Merge overlapping boxes produced by neighboring tiles/models.
+  const unique=[];
+  detected.sort((a,b)=>(b.w*b.h)-(a.w*a.h));
+  for(const box of detected){
+   if(unique.some(existing=>intersectionOverSmaller(existing,box)>.55))continue;
+   unique.push(box);
+  }
+  let added=0;
+  for(const box of unique){
+   if(masks.some(existing=>intersectionOverSmaller(existing,box)>.70))continue;
+   addAutoMask(box);added++;
+  }
+  selected=-1;$('progress').style.width='100%';
+  status(added?`${added}か所に加工範囲を追加しました。写真全体を確認してください。`:'顔・人物を検出できませんでした。画像を拡大するか、ドラッグで加工範囲を追加してください。');
+  render();
+ }catch(error){
+  console.error(error);status('検出モデルの読み込みまたは処理に失敗しました。ネット接続とブラウザのメモリを確認してください。');
+ }finally{
+  $('detect').disabled=false;setTimeout(()=>$('progress').style.width='0%',1400);
+ }
+};
 $('export').onclick=()=>{if(!image)return status('保存する画像がありません。');const out=document.createElement('canvas');out.width=canvas.width;out.height=canvas.height;out.getContext('2d').drawImage(canvas,0,0);out.toBlob(blob=>{if(!blob)return status('JPGを書き出せませんでした。');const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mutsuru-blur.jpg';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1200);status('JPGを保存しました。')},'image/jpeg',+$('quality').value/100)};
 </script>
 </body></html>
